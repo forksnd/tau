@@ -1342,6 +1342,7 @@ db__tbl_qry_str_stmt(sqlite3_stmt **not_null stmt,
         sqlite3_finalize(tbl_stmt);
         sqlite3_finalize(col_stmt);
         sqlite3_finalize(*stmt);
+
         *stmt = 0;
         return err;
       }
@@ -1957,8 +1958,8 @@ db_info_qry_elm(struct db_state *not_null sdb,
   }
   str_buf_clr(&vinfo->buf);
   sinfo->elm_rng = rng(low, high, sinfo->tab_cnt[sinfo->sel_tab]);
-  sinfo->elm_cnt = 0;
   vinfo->id = sdb->id;
+  sinfo->elm_cnt = 0;
 
   sqlite3_stmt *stmt = 0;
   err = db__info_qry_elm_stmt(&stmt, sdb, sinfo, vinfo->fnd_str, low, high);
@@ -2122,8 +2123,8 @@ db_tab_open(struct db_state *not_null sdb, int tbl_idx) {
 }
 priv int
 db_tab_open_new(struct db_state *not_null sdb) {
-  assert(~sdb->tbl_act);
-  assert(sdb->tab_cnt < DB_TBL_CNT);
+  requires(~sdb->tbl_act);
+  requires(sdb->tab_cnt < DB_TBL_CNT);
 
   requires(db__state_is_val(sdb));
   int tbl_idx = cpu_bit_ffs64(~sdb->tbl_act);
@@ -2635,7 +2636,6 @@ ui_db_tbl_view_hdr_key_slot(struct db_tbl_view *not_null view,
   struct gui_cfg_stk stk[1] = {0};
   unsigned fk_col = ctx->cfg.col[GUI_COL_TXT_DISABLED];
   confine gui_cfg_pushu_scope(&gui, stk, &ctx->cfg.col[GUI_COL_ICO], fk_col) {
-
     struct gui_btn hdr = {.box = slot->pan.box};
     struct str col_name = str_buf_get(&view->col.buf, col->name);
     ui_btn_ico_txt(ctx, &hdr, &slot->pan, col_name, RES_ICO_KEY);

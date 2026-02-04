@@ -485,20 +485,6 @@ gui_drw_ln(struct gui_ctx *ctx, int px0, int py0, int px1, int py1) {
   }
 }
 static void
-gui_drw_hln(struct gui_ctx *ctx, int posy, int px0, int px1) {
-  assert(ctx);
-  assert(ctx->vtx_buf);
-  assert(ctx->idx_buf);
-  gui_drw_ln(ctx, px0, posy, px1, posy);
-}
-static void
-gui_drw_vln(struct gui_ctx *ctx, int posx, int py0, int py1) {
-  assert(ctx);
-  assert(ctx->vtx_buf);
-  assert(ctx->idx_buf);
-  gui_drw_ln(ctx, posx, py0, posx, py1);
-}
-static void
 gui_drw_sbox(struct gui_ctx *ctx, int px0, int py0, int px1, int py1) {
   assert(ctx);
   assert(ctx->vtx_buf);
@@ -506,10 +492,10 @@ gui_drw_sbox(struct gui_ctx *ctx, int px0, int py0, int px1, int py1) {
   if (ctx->pass != GUI_RENDER) {
     return;
   }
-  gui_drw_hln(ctx, py0, px0, px1);
-  gui_drw_hln(ctx, py1, px0, px1);
-  gui_drw_vln(ctx, px0, py0, py1);
-  gui_drw_vln(ctx, px1, py0, py1);
+  gui_drw_ln(ctx, px0, py0, px1, py0);
+  gui_drw_ln(ctx, px0, py1, px1, py1);
+  gui_drw_ln(ctx, px0, py0, px0, py1);
+  gui_drw_ln(ctx, px1, py0, px1, py1);
 }
 static void
 gui_drw_circle(struct gui_ctx *ctx, int posx, int posy, int radius) {
@@ -792,16 +778,16 @@ gui_panel_drw(struct gui_ctx *ctx, const struct gui_box *box) {
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_BG]);
   gui_drw_box(ctx, gui_unbox(box));
 
-  gui_drw_hln(ctx, box->y.min, box->x.min, box->x.max - 1);
-  gui_drw_vln(ctx, box->x.min, box->y.min, box->y.max - 1);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.max - ctx->cfg.line, box->y.min + ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line);
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-  gui_drw_hln(ctx, box->y.min, box->x.min, box->x.max - 1);
-  gui_drw_vln(ctx, box->x.min, box->y.min + 1, box->y.max - 1);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.max - ctx->cfg.line, box->y.min + ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min, box->y.min + ctx->cfg.line, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line);
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-  gui_drw_hln(ctx, box->y.max - 1, box->x.min, box->x.max - 1);
-  gui_drw_vln(ctx, box->x.max - 1, box->y.min, box->y.max - 1);
+  gui_drw_box(ctx, box->x.min, box->y.max - ctx->cfg.line, box->x.max - ctx->cfg.line, box->y.max);
+  gui_drw_box(ctx, box->x.max - ctx->cfg.line, box->y.min, box->x.max, box->y.max);
 }
 static void
 gui_focus_drw(struct gui_ctx *ctx, const struct gui_box *box, int pad) {
@@ -972,6 +958,7 @@ gui_color_scheme(struct gui_ctx *ctx, enum gui_col_scheme scm) {
 }
 static void
 gui_dflt_cfg(struct gui_cfg *cfg) {
+  cfg->line = GUI_CFG_LINE;
   cfg->sep = GUI_CFG_SEP;
   cfg->item = GUI_CFG_ITEM;
   cfg->elm = GUI_CFG_ELM;
@@ -1010,6 +997,7 @@ gui__scale_val(int val, unsigned dpi_scale) {
 }
 static void
 gui_cfg_scale(struct gui_cfg *out, const struct gui_cfg *old, unsigned dpi_scale) {
+  out->line = gui__scale_val(old->line, dpi_scale);
   out->sep = gui__scale_val(old->sep, dpi_scale);
   out->item = gui__scale_val(old->item, dpi_scale);
   out->elm = gui__scale_val(old->elm, dpi_scale);
@@ -1321,7 +1309,7 @@ gui_enable(struct gui_ctx *ctx, int cond) {
 }
 
 /* ---------------------------------------------------------------------------
- *                                  Drag & Drop
+ *                            Drag & Drop
  * ---------------------------------------------------------------------------
  */
 static int
@@ -1467,8 +1455,8 @@ gui_drw_txt_uln(struct gui_ctx *ctx, struct gui_panel *pan,
 
   gui_txt_ext(off, ctx, strp(str_beg(txt), str_beg(uln_min)));
   gui_txt_ext(len, ctx, strp(str_beg(uln_min), str_beg(uln_max)));
-  gui_drw_hln(ctx, pan->box.y.max - 1, pan->box.x.min + off[0],
-              pan->box.x.min + off[0] + len[0]);
+  gui_drw_ln(ctx, pan->box.x.min + off[0], pan->box.y.max - 1,
+    pan->box.x.min + off[0] + len[0], pan->box.y.max - 1);
 }
 static void
 gui_align_txt(struct gui_box *box, const struct gui_align *align, int *ext) {
@@ -1736,13 +1724,12 @@ gui_btn_drw(struct gui_ctx *ctx, const struct gui_panel *btn) {
     gui_drw_box(ctx, gui_unbox(box));
 
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-    gui_drw_hln(ctx, box->y.min + 1, box->x.min + 1, box->x.max - 2);
-    gui_drw_vln(ctx, box->x.min + 1, box->y.min + 1, box->y.max - 2);
+    gui_drw_box(ctx, box->x.min + ctx->cfg.line, box->y.min + ctx->cfg.line, box->x.max - 2*ctx->cfg.line, box->y.min + ctx->cfg.line);
+    gui_drw_box(ctx, box->x.min + ctx->cfg.line, box->y.min + ctx->cfg.line, box->x.min + 2*ctx->cfg.line, box->y.max - 2*ctx->cfg.line);
 
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-    gui_drw_hln(ctx, box->y.max-1, box->x.min, box->x.max);
-    gui_drw_vln(ctx, box->x.max, box->y.min, box->y.max-1);
-
+    gui_drw_box(ctx, box->x.min, box->y.max - ctx->cfg.line, box->x.max, box->y.max);
+    gui_drw_box(ctx, box->x.max, box->y.min, box->x.max, box->y.max - ctx->cfg.line);
   } else {
     gui_panel_drw(ctx, &btn->box);
     if (btn->state == GUI_FOCUSED) {
@@ -1876,13 +1863,13 @@ gui__chk_drw(struct gui_ctx *ctx, const struct gui_panel *pan) {
   gui_drw_box(ctx, gui_unbox(box));
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-  gui_drw_hln(ctx, box->y.min + 1, box->x.min + 1, box->x.max - 1);
-  gui_drw_vln(ctx, box->x.min + 1, box->y.min + 1, box->y.max - 2);
+  gui_drw_box(ctx, box->x.min + ctx->cfg.line, box->y.min, box->x.max - ctx->cfg.line, box->y.min + ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min, box->y.min + ctx->cfg.line, box->x.min + ctx->cfg.line, box->y.max - 2*ctx->cfg.line);
 
   int col = (pan->state == GUI_DISABLED) ? GUI_COL_LIGHT : GUI_COL_BG;
   gui_drw_col(ctx, ctx->cfg.col[col]);
-  gui_drw_hln(ctx, box->y.max - 2, box->x.min + 1, box->x.max - 2);
-  gui_drw_vln(ctx, box->x.max - 2, box->y.min + 2, box->y.max - 2);
+  gui_drw_box(ctx, box->x.min + ctx->cfg.line, box->y.max - 2 * ctx->cfg.line, box->x.max, box->y.max - ctx->cfg.line);
+  gui_drw_box(ctx, box->x.max - 2 * ctx->cfg.line, box->y.min + 2*ctx->cfg.line, box->x.max - ctx->cfg.line, box->y.max - 2*ctx->cfg.line);
 }
 static void
 gui__tog_drw(struct gui_ctx *ctx, struct gui_panel *pan, int act) {
@@ -3308,7 +3295,9 @@ gui_edit_field_drw(struct gui_ctx *ctx, struct gui_edit_box *box,
   /* draw cursor */
   if (box->active && !gui_txt_ed_has_sel(edt)) {
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_TXT]);
-    gui_drw_vln(ctx, pan->box.x.min + cur_ext[0], pan->box.y.min + 1, pan->box.y.max);
+    gui_drw_box(ctx, pan->box.x.min + cur_ext[0],
+      pan->box.y.min + ctx->cfg.line, pan->box.x.min + cur_ext[0] + ctx->cfg.line,
+      pan->box.y.max);
   }
   /* draw focus */
   if (pan->state == GUI_FOCUSED) {
@@ -3442,16 +3431,16 @@ gui_edit_drw(struct gui_ctx *ctx, const struct gui_panel *pan) {
   gui_drw_box(ctx, gui_unbox(box));
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_BG]);
-  gui_drw_hln(ctx, box->y.max - 1, box->x.min + 1, box->x.max);
-  gui_drw_vln(ctx, box->x.max - 1, box->y.min + 1, box->y.max - 1);
+  gui_drw_box(ctx, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line, box->x.max, box->y.max);
+  gui_drw_box(ctx, box->x.max - ctx->cfg.line, box->y.min + ctx->cfg.line, box->x.max, box->y.max - ctx->cfg.line);
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-  gui_drw_hln(ctx, box->y.min, box->x.min, box->x.max - 1);
-  gui_drw_vln(ctx, box->x.min, box->y.min, box->y.max - 1);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.max - ctx->cfg.line, box->y.min);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line);
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-  gui_drw_hln(ctx, box->y.max, box->x.min, box->x.max);
-  gui_drw_vln(ctx, box->x.max, box->y.min + 1, box->y.max);
+  gui_drw_box(ctx, box->x.min, box->y.max - ctx->cfg.line, box->x.max, box->y.max);
+  gui_drw_box(ctx, box->x.max - ctx->cfg.line, box->y.min + ctx->cfg.line, box->x.max, box->y.max);
 }
 static struct str
 gui_edit(struct gui_ctx *ctx, struct gui_edit_box *edt,
@@ -3796,7 +3785,7 @@ gui_spin_drw(struct gui_ctx *ctx, struct gui_spin_val *val,
     gui_drw_box(ctx, gui_unbox(&cur));
     gui_drw_line_style(ctx, 1);
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_TXT]);
-    gui_drw_vln(ctx, cur.x.max, cur.y.min, cur.y.max - 1);
+    gui_drw_box(ctx, cur.x.max, cur.y.min, cur.x.max + ctx->cfg.line, cur.y.max - ctx->cfg.line);
   }
 }
 static int
@@ -4013,16 +4002,16 @@ gui_grp_drw_hdr(struct gui_ctx *ctx, const struct gui_grp *grp,
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_TXT]);
   gui_drw_txt(ctx, box->x.min + ctx->cfg.grp_off, box->y.min, txt);
 
-  gui_drw_line_style(ctx, 1);
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-  gui_drw_hln(ctx, top, box->x.min, box->x.min + ctx->cfg.grp_pad);
+  gui_drw_box(ctx, box->x.min, top, box->x.min + ctx->cfg.grp_pad, top + ctx->cfg.line);
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-  gui_drw_hln(ctx, top + 1, box->x.min + 1, box->x.min + ctx->cfg.grp_pad);
+  gui_drw_box(ctx, box->x.min + ctx->cfg.line, top + ctx->cfg.line, box->x.min + ctx->cfg.grp_pad, top + ctx->cfg.line);
 }
 static void
 gui_grp_drw(struct gui_ctx *ctx, const struct gui_grp *grp,
             const struct gui_panel *pan) {
+
   assert(ctx);
   assert(grp);
   assert(pan);
@@ -4031,18 +4020,17 @@ gui_grp_drw(struct gui_ctx *ctx, const struct gui_grp *grp,
   int top = box->y.min + (grp->ext[1] >> 1);
   int ext_off = (2 * ctx->cfg.grp_off) + grp->ext[0];
 
-  gui_drw_line_style(ctx, 1);
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-  gui_drw_hln(ctx, top, box->x.min + ext_off, box->x.max - 1);
-  gui_drw_hln(ctx, box->y.max - 1, box->x.min, box->x.max - 1);
-  gui_drw_vln(ctx, box->x.min, box->y.min, box->y.max - 1);
-  gui_drw_vln(ctx, box->x.max - 1, top, box->y.max - 1);
+  gui_drw_box(ctx, box->x.min + ext_off, top, box->x.max - ctx->cfg.line, top + ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min, box->y.max - ctx->cfg.line, box->x.max - ctx->cfg.line, box->y.max);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line);
+  gui_drw_box(ctx, box->x.max - ctx->cfg.line, top, box->x.max, box->y.max - ctx->cfg.line);
 
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-  gui_drw_hln(ctx, top + 1, box->x.min + ext_off, box->x.max - 2);
-  gui_drw_hln(ctx, box->y.max, box->x.min, box->x.max);
-  gui_drw_vln(ctx, box->x.min + 1, top + 1, box->y.max - 2);
-  gui_drw_vln(ctx, box->x.max, top, box->y.max);
+  gui_drw_box(ctx, box->x.min + ext_off, top + ctx->cfg.line, box->x.max - 2*ctx->cfg.line, top + 2*ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min, box->y.max, box->x.max, box->y.max + ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min + ctx->cfg.line, top + ctx->cfg.line, box->x.min + 2*ctx->cfg.line, box->y.max - 2*ctx->cfg.line);
+  gui_drw_box(ctx, box->x.max, top, box->x.max + ctx->cfg.line, box->y.max);
 }
 static void
 gui_grp_begin(struct gui_ctx *ctx, struct gui_grp *grp,
@@ -4094,10 +4082,9 @@ gui_reg_drw(struct gui_ctx *ctx, const struct gui_box *box) {
   gui_drw_box(ctx, gui_unbox(box));
 
   /* border */
-  gui_drw_line_style(ctx, 1);
   gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-  gui_drw_hln(ctx, box->y.min, box->x.min, box->x.max-1);
-  gui_drw_vln(ctx, box->x.min, box->y.min, box->y.max);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.max - ctx->cfg.line, box->y.min + ctx->cfg.line);
+  gui_drw_box(ctx, box->x.min, box->y.min, box->x.min + ctx->cfg.line, box->y.max);
 }
 static void
 gui_reg_begin(struct gui_ctx *ctx, struct gui_reg *reg,
@@ -5475,7 +5462,6 @@ gui_tbl_hdr_begin(struct gui_ctx *ctx, struct gui_tbl *tbl, int *items,
 
   tbl->spt.box.x = gui_min_ext(pan->box.x.min, pan->box.x.ext + offx);
   tbl->spt.box.y = gui_min_ext(pan->box.y.min + offy, ctx->cfg.item);
-
   gui_split_begin(ctx, &tbl->spt, pan, GUI_SPLIT_EXP, GUI_HORIZONTAL, items,
                   item_cnt, state, state_cnt);
 }
@@ -5943,21 +5929,20 @@ gui__tab_hdr_slot_drw(struct gui_ctx *ctx, const struct gui_tab_ctl *tab,
     int top = box->y.min + ((is_act) ? 0 : 1);
     int height = box->y.ext - ((is_act) ? 0 : 1);
 
-    gui_drw_line_style(ctx, 1);
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_BG]);
     gui_drw_box(ctx, box->x.min, top, box->x.max, top + height);
 
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-    gui_drw_hln(ctx, top, box->x.min, box->x.max - 1);
+    gui_drw_box(ctx, box->x.min, top, box->x.max - ctx->cfg.line, top + ctx->cfg.line);
     if (!is_act) {
-      gui_drw_hln(ctx, box->y.max, box->x.min, box->x.max);
+      gui_drw_box(ctx, box->x.min, box->y.max, box->x.max, box->y.max + ctx->cfg.line);
     }
     if (tab->idx == 0 || (tab->idx - 1) != tab->sel.idx) {
-      gui_drw_vln(ctx, box->x.min, top, box->y.max);
+      gui_drw_box(ctx, box->x.min, top, box->x.min + ctx->cfg.line, box->y.max);
     }
     if (tab->sel.idx != (tab->idx + 1)) {
       gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-      gui_drw_vln(ctx, box->x.max - 1, top, box->y.max);
+      gui_drw_box(ctx, box->x.max - ctx->cfg.line, top, box->x.max, box->y.max);
     }
   } break;
 
@@ -5965,22 +5950,21 @@ gui__tab_hdr_slot_drw(struct gui_ctx *ctx, const struct gui_tab_ctl *tab,
     int bot = box->y.max - ((is_act) ? 0 : 1);
     int height = box->y.ext - ((is_act) ? 0 : 1);
 
-    gui_drw_line_style(ctx, 1);
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_BG]);
     gui_drw_box(ctx, box->x.min, bot, box->x.max, bot - height);
 
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-    gui_drw_hln(ctx, bot, box->x.min, box->x.max - 1);
+    gui_drw_box(ctx, box->x.min, bot - ctx->cfg.line, box->x.max - ctx->cfg.line, bot);
     if (!is_act) {
-      gui_drw_hln(ctx, box->y.min, box->x.min, box->x.max);
+      gui_drw_box(ctx, box->x.min, box->y.min, box->x.max, box->y.min + ctx->cfg.line);
     }
     if (tab->idx == 0 || (tab->idx - 1) != tab->sel.idx) {
       gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-      gui_drw_vln(ctx, box->x.min, bot, box->y.min);
+      gui_drw_box(ctx, box->x.min, bot, box->x.min + ctx->cfg.line, box->y.min);
     }
     if (tab->sel.idx != (tab->idx + 1)) {
       gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-      gui_drw_vln(ctx, box->x.max - 1, box->y.min, bot);
+      gui_drw_box(ctx, box->x.max - ctx->cfg.line, box->y.min, box->x.max, bot);
     }
   } break;}
 }
@@ -6100,25 +6084,23 @@ gui__tab_ctl_drw(struct gui_ctx *ctx, const struct gui_tab_ctl *tab,
 
   switch(tab->hdr_pos) {
   case GUI_TAB_HDR_TOP: {
-    gui_drw_line_style(ctx, 1);
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-    gui_drw_hln(ctx, tab->at, tab->off, box->x.max - 2);
-    gui_drw_vln(ctx, box->x.min, tab->at, box->y.max - 1);
+    gui_drw_box(ctx, tab->off, tab->at, box->x.max - 2*ctx->cfg.line, tab->at);
+    gui_drw_box(ctx, box->x.min, tab->at, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line);
 
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-    gui_drw_hln(ctx, box->y.max - 1, box->x.min + 1, box->x.max - 2);
-    gui_drw_vln(ctx, box->x.max - 2, tab->at, box->y.max - 1);
+    gui_drw_box(ctx, box->x.min + ctx->cfg.line, box->y.max - ctx->cfg.line, box->x.max - 2*ctx->cfg.line, box->y.max);
+    gui_drw_box(ctx, box->x.max - 2*ctx->cfg.line, tab->at, box->x.max - ctx->cfg.line, box->y.max - ctx->cfg.line);
   } break;
 
   case GUI_TAB_HDR_BOT: {
-    gui_drw_line_style(ctx, 1);
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_LIGHT]);
-    gui_drw_hln(ctx, box->y.min, box->x.min, box->x.max);
-    gui_drw_vln(ctx, box->x.min, box->y.min, tab->at);
+    gui_drw_box(ctx, box->x.min, box->y.min, box->x.max, box->y.min + ctx->cfg.line);
+    gui_drw_box(ctx, box->x.min, box->y.min, box->x.min + ctx->cfg.line, tab->at);
 
     gui_drw_col(ctx, ctx->cfg.col[GUI_COL_SHADOW]);
-    gui_drw_hln(ctx, tab->at, tab->off, box->x.max - 2);
-    gui_drw_vln(ctx, box->x.max - 2, box->y.min, tab->at);
+    gui_drw_box(ctx, tab->off, tab->at, box->x.max - 2*ctx->cfg.line, tab->at + ctx->cfg.line);
+    gui_drw_box(ctx, box->x.max - 2*ctx->cfg.line, box->y.min, box->x.max - ctx->cfg.line, tab->at);
   } break;}
 }
 static void
@@ -6151,14 +6133,14 @@ gui__grid_drw(struct gui_ctx *ctx, struct gui_box *box, unsigned flags,
     assert(size > 0);
     int posx = (off_x < 0) ? (abs(off_x) % size) : (size - (off_x % size));
     for (; posx < box->x.ext; posx += size) {
-      gui_drw_vln(ctx, box->x.min + posx, box->y.min, box->y.max);
+      gui_drw_box(ctx, box->x.min + posx, box->y.min, box->x.min + posx + ctx->cfg.line, box->y.max);
     }
   }
   if (flags & GUI_GRID_Y) {
     assert(size > 0);
     int posy = (off_y < 0) ? (abs(off_y) % size) : (size - (off_y % size));
     for (; posy < box->y.ext; posy += size) {
-      gui_drw_hln(ctx, box->y.min + posy, box->x.min, box->x.max);
+      gui_drw_box(ctx, box->x.min, box->y.min + posy, box->x.max, box->y.min + posy + ctx->cfg.line);
     }
   }
 }

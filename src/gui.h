@@ -856,6 +856,7 @@ enum gui_col_scheme {
   GUI_COL_SCHEME_GRAY,
 };
 enum {
+  GUI_CFG_LINE      = 1,
   GUI_CFG_SEP       = 6,
   GUI_CFG_ITEM      = 22,
   GUI_CFG_ELM       = 18,
@@ -889,6 +890,7 @@ struct gui_cfg {
   int sep;
   int scrl;
   int grid;
+  int line;
   int btn_pad;
   int grp_off;
   int grp_pad;
